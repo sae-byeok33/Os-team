@@ -117,7 +117,7 @@ trap(struct trapframe *tf)
   // yield() 현재 프로세스를 RUNNABLE로 바꾸고, sched() 호출해서 다른 프로세스로 문맥을 전환
   if(myproc() && myproc()->state == RUNNING &&tf->trapno == T_IRQ0+IRQ_TIMER) 
   {
-    myproc()->ticks[myproc()->priority]++;
+    myproc()->ticks[myproc()->priority]++; //타이머 인터럽트가 발생할때 마다 1틱이 추가됨
     yield();
   }
 
