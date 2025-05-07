@@ -604,7 +604,7 @@ procdump(void)
   }
 }
 
-#include "pstat.h"
+#include "pstat.h" // 구조체를 include해줌
 
 int
 sys_getpinfo(void)
@@ -612,33 +612,47 @@ sys_getpinfo(void)
   struct pstat *ps;
 
   // 유저 포인터를 커널에서 접근 가능하도록 변환
+  //argprt(인자번호 결과를 저장하는 주소 , 기대하는 크기)
   if (argptr(0, (void*)&ps, sizeof(*ps)) < 0)
-    return -1;
+    return -1;  //잘못된 포인터일시 -1 반환
 
-  acquire(&ptable.lock);
+  acquire(&ptable.lock); //프로세스 테이블 락
+
   for (int i = 0; i < NPROC; i++) {
     struct proc *p = &ptable.proc[i];
-    ps->inuse[i] = (p->state != UNUSED);
-    ps->pid[i] = p->pid;
-    ps->priority[i] = p->priority;
-    ps->state[i] = p->state;
+
+    ps->inuse[i] = (p->state != UNUSED); // 현재 프로세스가 사용중인지
+
+    ps->pid[i] = p->pid; //프로세스 ID를 저장
+
+    ps->priority[i] = p->priority; // 현재 우선순위
+
+    ps->state[i] = p->state; // 현재 상태
+
+    // 우선순위별 실행 시간을 복사
     for (int j = 0; j < 4; j++) {
-      ps->ticks[i][j] = p->ticks[j];
-      ps->wait_ticks[i][j] = p->wait_ticks[j];
+      ps->ticks[i][j] = p->ticks[j];      //각 큐에서의 실행시간
+      ps->wait_ticks[i][j] = p->wait_ticks[j]; // 각 큐에서의 대기시간
     }
   }
-  release(&ptable.lock);
-  return 0;
+  release(&ptable.lock); //락 해제
+  return 0; 
 }
+
 
 int
 sys_setSchedPolicy(void)
 {
   int policy;
+  // 사용자로 부터 전달된 첫 번째 인자(policy 번호)를 읽어옴
+  // 실패하면 -1 반환
   if (argint(0, &policy) < 0)
     return -1;
+
+  // 유효한 정책 번호인지 확인 (예 0~3 사이만 허용)
   if (policy < 0 || policy > 3)
     return -1;
+
 
   cli();  // 인터럽트 끄기
   mycpu()->sched_policy = policy;
@@ -648,42 +662,61 @@ sys_setSchedPolicy(void)
 }
 
 
+
+//각 프로세스가 자신의 큐에서 얼마나 대기했는지 
 void
 update_wait_ticks(struct proc *running)
 {
+  // ptable에 있는 모든 프로세스를 순회
   for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    
+    //현재 실행 중인 프로세스는 제외하고
     if (p == running) continue;
+    
+    //실행 가능한 상태인 프로세스만 대상으로 한다
     if (p->state == RUNNABLE) {
+      //비 정상적인 priorty값은 무시한다
       if (p->priority < 0 || p->priority > 3)
          continue; // 잘못된 priority 값이면 무시
+
+      //현재 프로세스가 속한 우선순위 큐에서 기다린 시간을 증가시킨다   
       p->wait_ticks[p->priority]++;
     }
   }
 }
 
+//우선 순위를 자동으로 조정해주는 함수 , Starvation 방지용
 void
 priority_boost(void)
 {
+  //모든 프로세스를 순회
   for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    //사용하지 않을 경우에는 건너뜀
     if (p->state == UNUSED)
       continue;
 
-    int prio = p->priority;
+    int prio = p->priority; // 현재 프로세스의 우선순위를 가져옴
 
+    //현재 우선순위가 Q1 or Q2인 경우
     if (prio == 2 || prio == 1) {
-      // slice: Q2 = 16, Q1 = 32
-      int slice[4] = {0, 32, 16, 8};
-      int limit = 10 * slice[prio];
+      // time slice 기준 : Q1=32 , Q2=16 , Q3 = 8
+      int slice[4] = {0, 32, 16, 8}; // Q0은 사용 안 하므로 0으로 둠
+
+      int limit = 10 * slice[prio]; //10배 대기 시간이 되면 우선순위를 상승시킨다
+
+      // 해당 우선순위에서 대기한 틱 수가 limit 이상이면
       if (p->wait_ticks[prio] >= limit) {
-        p->priority++;
-        p->wait_ticks[prio] = 0;
+        p->priority++;            //우선 순위 상승(0->1->2)
+        p->wait_ticks[prio] = 0; // 대기 시간을 초기화 한다
       }
     }
 
+    // 현재 우선순위가 Q0인 경우
     if (prio == 0) {
+      //Q0에 너무 오래 머무르면 -> Q1로 이동
       if (p->wait_ticks[0] >= 500) {
-        p->priority = 1;
-        p->wait_ticks[0] = 0;
+        p->priority = 1;    //우선순위를 상승
+        p->wait_ticks[0] = 0; // 초기화
       }
     }
   }
