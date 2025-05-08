@@ -356,39 +356,49 @@ scheduler(void)
     sti();
     acquire(&ptable.lock);
 
-    if (c->sched_policy == 1) {
-      // MLFQ: 높은 우선순위부터 RUNNABLE 프로세스 탐색
-      struct proc *selected = 0;
+    if (c->sched_policy == 1) { //스케줄링 정책이 MLFQ일 경우에
+      
+      struct proc *selected = 0; //선택된 프로세스를 가리키는 포인터
+      //우선순위가 낮은 큐 부터 순차적으로 검사하는 for문
       for (int prio = 3; prio >= 0; prio--) {
         for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+
+          //현재 프로세스가 RUNNABLE 상태이면서 우선순위가 prio일 경우에 
           if (p->state == RUNNABLE && p->priority == prio) {
-            selected = p;
-            goto found;
+
+            selected = p; //선택된 프로세스로 설정한뒤 
+
+            goto found; // 탐색을 종료한 후 다음 지역으로(found는 바로 아래있음) 
           }
         }
       }
     found:
       if (selected) {
-        c->proc = selected;
-        switchuvm(selected);
-        selected->state = RUNNING;
+        c->proc = selected; // 선택된 프로세스를 CPU에 할당한뒤
 
-        // 한 번만 swtch, 실제 시간은 타이머 인터럽트에서 틱 관리
+        switchuvm(selected); // 사용자 주소 공간을 설정
+
+        selected->state = RUNNING; // 상태를 RUNNIG으로 변경
+
+        // 컨텍스트 스위칭
         swtch(&(c->scheduler), selected->context);
-        switchkvm();
+        
+        switchkvm(); //커널의 가상 주소로 복귀
 
         // 타임슬라이스 다 썼으면 demote
         int slice[4] = {0, 32, 16, 8};
         int prio = selected->priority;
         if (prio > 0 && selected->ticks[prio] >= slice[prio]) {
-          selected->priority--;
-          selected->ticks[prio] = 0;
+          selected->priority--; //우선순위를 감소시킴
+          selected->ticks[prio] = 0; //해당 우선순위에서의 틱 초기화
         }
 
         // 다른 프로세스 대기 시간 증가 + boost 체크
         update_wait_ticks(selected);
+
         priority_boost();
 
+        //현재 cpu에서 실행 중인 프로세스를 초기화
         c->proc = 0;
       }
 
