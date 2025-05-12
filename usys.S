@@ -32,4 +32,5 @@ SYSCALL(uptime)
 SYSCALL(uthread_init)
 SYSCALL(getpinfo)
 SYSCALL(setSchedPolicy)
+SYSCALL(yield)
 

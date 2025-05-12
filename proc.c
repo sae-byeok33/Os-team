@@ -356,7 +356,7 @@ scheduler(void)
     sti();
     acquire(&ptable.lock);
 
-    if (c->sched_policy == 1) {
+    if (c->sched_policy == 1 || c->sched_policy == 2) {
       // MLFQ: 높은 우선순위부터 RUNNABLE 프로세스 탐색
       struct proc *selected = 0;
       for (int prio = 3; prio >= 0; prio--) {
@@ -378,7 +378,7 @@ scheduler(void)
         switchkvm();
 
         // 타임슬라이스 다 썼으면 demote
-        int slice[4] = {0, 32, 16, 8};
+        int slice[4] = {1000000, 32, 16, 8};
         int prio = selected->priority;
         if (prio > 0 && selected->ticks[prio] >= slice[prio]) {
           selected->priority--;

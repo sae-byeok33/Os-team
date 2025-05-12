@@ -23,3 +23,4 @@
 #define SYS_uthread_init 22
 #define SYS_getpinfo  23  
 #define SYS_setSchedPolicy 24
+#define SYS_yield   25

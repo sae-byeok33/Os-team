@@ -108,3 +108,10 @@ sys_uthread_init(void)
   //시스템 콜 정상 종료
   return 0;
 }
+
+int
+sys_yield(void)
+{
+  yield();  // 커널 내부의 scheduler.c 함수
+  return 0;
+}

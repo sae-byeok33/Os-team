@@ -106,6 +106,7 @@ extern int sys_uptime(void);
 extern int sys_uthread_init(void);
 extern int sys_getpinfo(void);
 extern int sys_setSchedPolicy(void);
+extern int sys_yield(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -132,7 +133,7 @@ static int (*syscalls[])(void) = {
 [SYS_uthread_init] sys_uthread_init,
 [SYS_getpinfo]    sys_getpinfo,
 [SYS_setSchedPolicy] sys_setSchedPolicy,
-
+[SYS_yield]   sys_yield,
 };
 
 void
